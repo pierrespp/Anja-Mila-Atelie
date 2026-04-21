@@ -67,7 +67,7 @@ export default function App() {
   const [items, setItems] = React.useState<CollectionItem[]>([]);
   const [user, setUser] = React.useState<User | null>(null);
   const [isLoginOpen, setIsLoginOpen] = React.useState(false);
-  const [loginEmail, setLoginEmail] = React.useState(OWNER_EMAIL);
+  const [loginEmail, setLoginEmail] = React.useState('');
   const [loginPassword, setLoginPassword] = React.useState('');
   const [loginError, setLoginError] = React.useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = React.useState(false);
