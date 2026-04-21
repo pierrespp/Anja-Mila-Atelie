@@ -1,0 +1,749 @@
+import React from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { MessageCircle, Instagram, Heart, Scissors, Package, Menu, X, Plus, Image as ImageIcon, Trash2, Camera, Loader2 } from 'lucide-react';
+import { 
+  collection, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  onSnapshot, 
+  query, 
+  orderBy,
+  serverTimestamp 
+} from 'firebase/firestore';
+import { 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  onAuthStateChanged, 
+  User,
+  signOut 
+} from 'firebase/auth';
+import imageCompression from 'browser-image-compression';
+import { db, auth } from './firebase';
+
+const googleProvider = new GoogleAuthProvider();
+
+const fadeIn = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { 
+    opacity: 1, 
+    y: 0, 
+    transition: { duration: 1, ease: [0.22, 1, 0.36, 1] } 
+  }
+};
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.2
+    }
+  }
+};
+
+interface CollectionItem {
+  id: string;
+  category: string;
+  title: string;
+  images: string[];
+  desc: string;
+  price?: string;
+  availability: 'Pronta Entrega' | 'Sob Encomenda' | 'Vendido';
+}
+
+export default function App() {
+  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const [isCuratorMode, setIsCuratorMode] = React.useState(false);
+  const [isFormOpen, setIsFormOpen] = React.useState(false);
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [items, setItems] = React.useState<CollectionItem[]>([]);
+  const [user, setUser] = React.useState<User | null>(null);
+  
+  // Form State
+  const [newItem, setNewItem] = React.useState<Partial<CollectionItem>>({
+    category: 'Enxoval Delicado',
+    availability: 'Sob Encomenda',
+    images: []
+  });
+
+
+
+  // Auth (Google Login for owner)
+  React.useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (u?.email !== 'pierre.santos.p@gmail.com') {
+        setIsCuratorMode(false);
+      }
+    });
+    return unsub;
+  }, []);
+
+  const login = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+      setIsCuratorMode(true);
+    } catch (error) {
+      console.error("Login failed:", error);
+      alert("Falha ao autenticar com o Google.");
+    }
+  };
+
+  const logout = () => {
+    signOut(auth);
+    setIsCuratorMode(false);
+  };
+
+  const toggleCuratorMode = () => {
+    if (!user) {
+      login();
+    } else if (user.email === 'pierre.santos.p@gmail.com') {
+      setIsCuratorMode(!isCuratorMode);
+    } else {
+      alert("Apenas o proprietário pode acessar o Modo Curadoria.");
+    }
+  };
+
+  // Real-time Firestore sync
+  React.useEffect(() => {
+    const q = query(collection(db, 'collections'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      })) as CollectionItem[];
+      setItems(data);
+    });
+    return unsub;
+  }, []);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const files = Array.from(e.target.files);
+    
+    // Limits: Max 5 images per document to stay under 1MB Firestore limit
+    const currentCount = newItem.images?.length || 0;
+    const remainingCount = 5 - currentCount;
+    const filesToUpload = files.slice(0, remainingCount);
+
+    if (filesToUpload.length === 0) {
+      if (currentCount >= 5) alert("Limite de 5 fotos por peça atingido para garantir a performance.");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const base64Images: string[] = [];
+      
+      const options = {
+        maxSizeMB: 0.1, // Keep it very small (100kb)
+        maxWidthOrHeight: 1024,
+        useWebWorker: true
+      };
+
+      for (const file of filesToUpload) {
+        // Compress image
+        const compressedFile = await imageCompression(file, options);
+        
+        // Convert to Base64
+        const reader = new FileReader();
+        const base64 = await new Promise<string>((resolve) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(compressedFile);
+        });
+        base64Images.push(base64);
+      }
+
+      setNewItem(prev => ({
+        ...prev,
+        images: [...(prev.images || []), ...base64Images]
+      }));
+    } catch (error: any) {
+      console.error("Processing failed:", error);
+      alert("Erro ao processar imagem: " + error.message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const removeUploadedImage = (url: string) => {
+    setNewItem(prev => ({
+      ...prev,
+      images: prev.images?.filter(u => u !== url)
+    }));
+  };
+
+  const handleAddItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newItem.title || !newItem.images || newItem.images.length === 0) return;
+
+    try {
+      if (editingId) {
+        const itemRef = doc(db, 'collections', editingId);
+        await updateDoc(itemRef, {
+          ...newItem,
+          updatedAt: serverTimestamp()
+        });
+      } else {
+        await addDoc(collection(db, 'collections'), {
+          ...newItem,
+          createdAt: serverTimestamp()
+        });
+      }
+
+      setNewItem({ category: 'Enxoval Delicado', availability: 'Sob Encomenda', images: [] });
+      setEditingId(null);
+      setIsFormOpen(false);
+    } catch (error) {
+      console.error("Error saving doc:", error);
+    }
+  };
+
+  const removeItem = async (id: string) => {
+    // Usando confirm do navegador. Se não aparecer, pode ser bloqueio do browser no preview.
+    const confirmed = window.confirm("Você tem certeza que deseja excluir esta peça permanentemente?");
+    if (!confirmed) return;
+
+    try {
+      await deleteDoc(doc(db, 'collections', id));
+      alert("Peça removida com sucesso!");
+    } catch (error: any) {
+      console.error("Delete failed:", error);
+      alert("Não foi possível excluir: " + (error.message || "Erro de permissão. Verifique se você está logado com o e-mail correto."));
+    }
+  };
+
+  const openEdit = (item: CollectionItem) => {
+    setNewItem(item);
+    setEditingId(item.id);
+    setIsFormOpen(true);
+  };
+
+  const openCreate = () => {
+    setNewItem({ category: 'Enxoval Delicado', availability: 'Sob Encomenda', images: [] });
+    setEditingId(null);
+    setIsFormOpen(true);
+  };
+
+  return (
+    <div className="min-h-screen selection:bg-cottage-rose/30 relative">
+      {/* Navbar - Fixed (z-40) */}
+      <nav className="fixed top-0 left-0 right-0 z-40 bg-cottage-cream/80 backdrop-blur-md border-b border-wood-soft">
+        <div className="max-w-7xl mx-auto px-12 h-20 flex items-center justify-between">
+          <h1 className="font-serif text-2xl font-bold text-cottage-wood italic tracking-tight">
+            Anja Mila Ateliê
+          </h1>
+
+          {/* Desktop Nav */}
+          <div className="hidden md:flex items-center gap-10">
+            {['Coleções', 'A Artesã', 'Processo', 'Contato'].map((item) => (
+              <a 
+                key={item} 
+                href={`#${item.toLowerCase().replace(' ', '-')}`}
+                className="text-[10px] uppercase tracking-[0.2em] font-semibold text-cottage-wood opacity-70 hover:opacity-100 hover:text-cottage-rose transition-all duration-300"
+              >
+                {item}
+              </a>
+            ))}
+          </div>
+
+          <div className="hidden lg:flex items-center gap-3 border border-wood-soft rounded-full px-4 py-2 opacity-60 text-xs italic">
+            <span>Procurar um presente especial...</span>
+          </div>
+
+          <button 
+            className="md:hidden text-cottage-wood"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
+
+        {/* Mobile Nav */}
+        <AnimatePresence>
+          {isMenuOpen && (
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="md:hidden bg-cottage-cream border-b border-wood-soft px-6 py-6"
+            >
+              <div className="flex flex-col gap-6">
+                {['Coleções', 'A Artesã', 'Processo', 'Contato'].map((item) => (
+                  <a 
+                    key={item} 
+                    href={`#${item.toLowerCase().replace(' ', '-')}`}
+                    className="text-[10px] uppercase tracking-[0.2em] font-semibold text-cottage-wood/70"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {item}
+                  </a>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="relative h-screen flex items-center justify-center pt-20 overflow-hidden">
+        <div className="absolute inset-0">
+          <img 
+            src="https://images.unsplash.com/photo-1528576273885-9e2c30d7758a?q=80&w=2070&auto=format&fit=crop" 
+            alt="Ateliê de costura organizado com tecidos e carinho" 
+            className="w-full h-full object-cover cottage-filter"
+            referrerPolicy="no-referrer"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-cottage-cream/60 via-transparent to-cottage-cream/80" />
+        </div>
+
+        <motion.div 
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={fadeIn}
+          className="relative z-10 text-center px-6 max-w-4xl"
+        >
+          <span className="inline-block text-cottage-sage font-semibold uppercase tracking-widest text-[11px] mb-6">
+            Modern Cottagecore
+          </span>
+          <h2 className="font-serif text-5xl md:text-7xl lg:text-8xl text-cottage-wood leading-[1.1] mb-8">
+            Onde o carinho ganha forma e a arte vira abraço.
+          </h2>
+          <p className="text-sm md:text-base text-cottage-wood/80 max-lg:mx-auto mb-12 italic font-light leading-relaxed max-w-lg mx-auto">
+            Artesanato premium feito à mão para eternizar momentos e decorar com alma.
+          </p>
+          <motion.a 
+            whileHover={{ scale: 1.05, brightness: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            href="#coleções"
+            className="inline-block bg-cottage-rose text-white px-10 py-4 rounded-full text-[11px] uppercase tracking-[0.2em] font-bold shadow-lg shadow-cottage-rose/20 hover:brightness-105 transition-all duration-500"
+          >
+            Explorar Coleções
+          </motion.a>
+        </motion.div>
+      </section>
+
+      {/* Galeria Section */}
+      <section id="coleções" className="py-32 px-6 max-w-7xl mx-auto">
+        <motion.div 
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={fadeIn}
+          className="text-center mb-20 relative"
+        >
+          <h3 className="font-serif text-4xl md:text-5xl text-cottage-wood mb-6">Feito com Amor: Nossa Curadoria</h3>
+          <p className="text-cottage-wood/60 max-w-2xl mx-auto italic text-sm leading-relaxed">
+            Peças exclusivas em costura criativa e tecidos selecionados, pensadas para quem valoriza o detalhe.
+          </p>
+          
+          {isCuratorMode && (
+            <motion.button
+              layoutId="curator-btn"
+              onClick={openCreate}
+              className="mt-8 inline-flex items-center gap-2 text-cottage-rose border border-cottage-rose px-6 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-cottage-rose hover:text-white transition-all duration-300"
+            >
+              <Plus size={14} /> Adicionar Nova Inspiração
+            </motion.button>
+          )}
+        </motion.div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <AnimatePresence mode="popLayout">
+            {items.map((item) => (
+              <motion.div 
+                key={item.id}
+                layout
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.6 }}
+                className="group relative"
+              >
+                {isCuratorMode && (
+                  <div className="absolute top-4 right-4 z-20 flex gap-2">
+                    <button 
+                      onClick={() => openEdit(item)}
+                      className="bg-white/80 p-2 rounded-full text-cottage-rose hover:text-white hover:bg-cottage-rose transition-all shadow-sm"
+                      title="Editar Peça"
+                    >
+                      <Scissors size={14} />
+                    </button>
+                    <button 
+                      onClick={() => removeItem(item.id)}
+                      className="bg-white/80 p-2 rounded-full text-red-400 hover:text-red-600 hover:bg-white transition-all shadow-sm"
+                      title="Excluir Peça"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                )}
+                
+                <div className="relative aspect-[4/5] overflow-hidden rounded-3xl shadow-sm mb-6">
+                  <img 
+                    src={item.images[0]} 
+                    alt={item.title}
+                    className="w-full h-full object-cover transition-transform duration-[1.5s] ease-out group-hover:scale-110 cottage-filter"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                  <div className="absolute bottom-6 left-6 text-white opacity-0 group-hover:opacity-100 transition-all duration-700 translate-y-4 group-hover:translate-y-0">
+                    <div className="font-serif text-2xl">{item.title}</div>
+                    <div className="text-[10px] uppercase tracking-widest opacity-80">{item.category}</div>
+                    {item.price && <div className="text-sm mt-2 font-medium">R$ {item.price}</div>}
+                  </div>
+                  {item.availability && (
+                    <div className="absolute top-6 left-6 bg-cottage-cream/90 text-cottage-wood text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border border-wood-soft">
+                      {item.availability}
+                    </div>
+                  )}
+                  {item.images.length > 1 && (
+                    <div className="absolute bottom-6 right-6 bg-black/40 backdrop-blur-md text-[10px] text-white px-2 py-1 rounded-md">
+                      +{item.images.length - 1} fotos
+                    </div>
+                  )}
+                </div>
+                <h4 className="font-serif text-xl text-cottage-wood mb-2">{item.title}</h4>
+                <p className="text-[10px] text-cottage-wood/50 uppercase tracking-[0.2em]">{item.desc}</p>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      </section>
+
+      {/* Sobre Section */}
+      <section id="a-artesã" className="py-32 bg-[#E9E1D2]/30 border-y border-wood-soft">
+        <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-20 items-center">
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={{
+              hidden: { opacity: 0, x: -50 },
+              visible: { opacity: 1, x: 0, transition: { duration: 1 } }
+            }}
+            className="relative"
+          >
+            <div className="aspect-square rounded-3xl overflow-hidden shadow-2xl">
+              <img 
+                src="https://images.unsplash.com/photo-1556905055-8f358a7a47b2?q=80&w=1974&auto=format&fit=crop" 
+                alt="Artesã no Ateliê Anja Mila" 
+                className="w-full h-full object-cover cottage-filter"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <div className="absolute -bottom-8 -right-8 w-48 h-48 bg-cottage-rose/10 rounded-full blur-3xl -z-10" />
+          </motion.div>
+
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeIn}
+            className="space-y-8"
+          >
+            <div className="text-cottage-sage font-semibold uppercase tracking-widest text-[11px]">Conectando Gerações</div>
+            <h3 className="font-serif text-4xl md:text-5xl text-cottage-wood leading-[1.1]">
+              Mãos que criam,<br />coração que dedica
+            </h3>
+            <p className="text-xs md:text-sm text-cottage-wood/80 leading-relaxed italic font-light max-w-md">
+              "Por trás de cada ponto e cada corte na Anja Mila Ateliê, existe uma história de paixão pelo feito à mão. Acredito que o artesanato é a forma mais pura de materializar o afeto. Aqui, o tempo corre mais devagar para que cada detalhe receba a atenção que merece."
+            </p>
+            <div className="flex items-center gap-4 text-cottage-sage font-medium tracking-widest uppercase text-[10px]">
+              <div className="h-[1px] w-12 bg-cottage-sage" />
+              Anja Mila Ateliê
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Processo Section */}
+      <section id="processo" className="py-32 px-6 max-w-7xl mx-auto">
+        <motion.div 
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={fadeIn}
+          className="text-center mb-20"
+        >
+          <h3 className="font-serif text-4xl md:text-5xl text-cottage-wood mb-6">A Jornada de uma Peça Única</h3>
+          <p className="text-cottage-wood/60 max-w-2xl mx-auto italic text-sm">O cuidado por trás de cada detalhe que chega até você.</p>
+        </motion.div>
+
+        <motion.div 
+          variants={staggerContainer}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          className="grid md:grid-cols-3 gap-16"
+        >
+          {[
+            { 
+              icon: <Scissors className="w-8 h-8" />, 
+              title: 'A Escolha', 
+              desc: 'Seleção cuidadosa de tecidos naturais e texturas que despertam o toque.' 
+            },
+            { 
+              icon: <Heart className="w-8 h-8" />, 
+              title: 'O Alinhavo', 
+              desc: 'Costura feita com paciência e precisão milimétrica em cada ponto.' 
+            },
+            { 
+              icon: <Package className="w-8 h-8" />, 
+              title: 'O Toque Final', 
+              desc: 'Embalagem perfumada e personalizada, pronta para emocionar.' 
+            }
+          ].map((item, idx) => (
+            <motion.div 
+              key={idx}
+              variants={fadeIn}
+              className="group"
+            >
+              <div className="flex flex-col gap-1 mb-8">
+                <span className="text-[11px] uppercase font-bold text-cottage-sage tracking-widest">{item.title}</span>
+                <span className="text-[11px] opacity-60 leading-relaxed">{item.desc}</span>
+              </div>
+              <div className="aspect-[16/9] rounded-3xl bg-cottage-sage/5 border border-wood-soft flex items-center justify-center text-cottage-sage group-hover:bg-cottage-rose/5 group-hover:text-cottage-rose transition-colors duration-500">
+                {item.icon}
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
+      </section>
+
+      {/* CTA Section */}
+      <section id="contato" className="py-32 bg-cottage-wood text-cottage-cream relative overflow-hidden border-t border-wood-soft">
+        <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none">
+          <div className="absolute top-10 left-10"><Instagram size={100} /></div>
+          <div className="absolute bottom-10 right-10"><Heart size={100} /></div>
+        </div>
+
+        <div className="max-w-4xl mx-auto px-6 text-center relative z-10">
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeIn}
+            className="space-y-10"
+          >
+            <h3 className="font-serif text-4xl md:text-6xl italic">Vamos criar algo especial para você?</h3>
+            <p className="text-sm md:text-base text-cottage-cream/60 font-light max-w-lg mx-auto leading-relaxed italic">
+              Para encomendas personalizadas ou dúvidas sobre prazos, entre em contato diretamente conosco. Será um prazer te ouvir.
+            </p>
+            <div className="flex flex-col items-center gap-6 pt-6">
+              <motion.a 
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                href="https://wa.me/5500000000000" 
+                className="flex items-center gap-2 border border-cottage-rose text-cottage-rose hover:bg-cottage-rose hover:text-white px-8 py-3 rounded-full text-[11px] font-bold uppercase tracking-widest transition-all duration-300"
+              >
+                <MessageCircle size={18} />
+                Encomendar via WhatsApp
+              </motion.a>
+              <div className="text-[10px] opacity-40">© 2026 Anja Mila Ateliê — Feito à mão com paciência e amor.</div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Curator Mode Toggle FAB */}
+      <button 
+        onClick={toggleCuratorMode}
+        className={`fixed bottom-8 left-8 z-50 p-4 rounded-full shadow-2xl transition-all duration-500 scale-90 hover:scale-100 ${isCuratorMode ? 'bg-cottage-rose text-white' : 'bg-white text-cottage-wood'}`}
+        title={isCuratorMode ? 'Desativar Modo Curadoria' : 'Ativar Modo Curadoria'}
+      >
+        <Scissors size={20} className={isCuratorMode ? 'animate-pulse' : ''} />
+      </button>
+
+      {user && user.email === 'pierre.santos.p@gmail.com' && (
+        <button 
+          onClick={logout}
+          className="fixed bottom-8 left-24 z-50 bg-white/80 backdrop-blur-md text-cottage-wood text-[9px] font-bold uppercase tracking-widest px-4 py-2 rounded-full border border-wood-soft hover:bg-white transition-all shadow-lg"
+        >
+          Sair do Ateliê
+        </button>
+      )}
+
+      {/* Add/Edit Item Slide-over Form */}
+      <AnimatePresence>
+        {isFormOpen && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsFormOpen(false)}
+              className="fixed inset-0 bg-cottage-wood/40 backdrop-blur-sm z-[60]"
+            />
+            <motion.div 
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed top-0 right-0 bottom-0 w-full max-w-lg bg-cottage-cream shadow-2xl z-[70] p-10 overflow-y-auto"
+            >
+              <div className="flex justify-between items-center mb-12">
+                <h3 className="font-serif text-3xl italic">
+                  {editingId ? 'Editar Peça Afetiva' : 'Curadoria Especial'}
+                </h3>
+                <button onClick={() => setIsFormOpen(false)} className="text-cottage-wood opacity-40 hover:opacity-100 transition-opacity">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddItem} className="space-y-8">
+                {/* Title */}
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-bold tracking-widest text-cottage-sage">Título da Peça</label>
+                  <input 
+                    type="text" 
+                    required
+                    placeholder="Ex: Manta Aconchego"
+                    className="w-full bg-transparent border-b border-wood-soft py-2 focus:border-cottage-rose transition-colors outline-none font-serif text-xl"
+                    value={newItem.title || ''}
+                    onChange={e => setNewItem({...newItem, title: e.target.value})}
+                  />
+                </div>
+
+                {/* Multiple Image Upload */}
+                <div className="space-y-4">
+                  <label className="text-[10px] uppercase font-bold tracking-widest text-cottage-sage block">
+                    Fotos ({newItem.images?.length || 0}/10)
+                  </label>
+                  
+                  <div className="grid grid-cols-5 gap-3">
+                    {(newItem.images || []).map((url) => (
+                      <div key={url} className="relative aspect-square rounded-lg overflow-hidden group shadow-sm">
+                        <img src={url} className="w-full h-full object-cover" />
+                        <button 
+                          type="button"
+                          onClick={() => removeUploadedImage(url)}
+                          className="absolute inset-0 bg-red-500/60 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ))}
+                    
+                    {(newItem.images?.length || 0) < 10 && (
+                      <label className={`aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-all duration-300 cursor-pointer group
+                        ${isUploading 
+                          ? 'border-cottage-rose bg-cottage-rose/5 opacity-50 pointer-events-none' 
+                          : 'border-wood-soft text-cottage-wood/40 hover:border-cottage-rose hover:bg-cottage-rose/[0.02] hover:text-cottage-rose'}`}>
+                        <div className={`p-3 rounded-full mb-1 transition-transform duration-500 ${isUploading ? 'bg-cottage-rose/10' : 'bg-cottage-wood/5 group-hover:scale-110 group-hover:bg-cottage-rose/10'}`}>
+                          {isUploading ? <Loader2 className="animate-spin text-cottage-rose" size={20} /> : <Camera size={20} />}
+                        </div>
+                        <span className="text-[9px] font-bold uppercase tracking-widest text-center px-1">
+                          {isUploading ? '...' : 'Upload'}
+                        </span>
+                        <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileUpload} />
+                      </label>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 items-center">
+                    <input 
+                      type="text" 
+                      id="image-url-input"
+                      placeholder="Ou cole o link da imagem aqui..."
+                      className="flex-1 bg-transparent border-b border-wood-soft py-2 focus:border-cottage-rose transition-colors outline-none text-xs italic"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const val = (e.currentTarget as HTMLInputElement).value;
+                          if (val) {
+                            setNewItem(prev => ({ ...prev, images: [...(prev.images || []), val] }));
+                            (e.currentTarget as HTMLInputElement).value = '';
+                          }
+                        }
+                      }}
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        const input = document.getElementById('image-url-input') as HTMLInputElement;
+                        if (input.value) {
+                          setNewItem(prev => ({ ...prev, images: [...(prev.images || []), input.value] }));
+                          input.value = '';
+                        }
+                      }}
+                      className="px-4 py-2 text-[8px] uppercase font-bold tracking-widest border border-cottage-wood/20 rounded-lg hover:bg-cottage-wood/5 transition-all"
+                    >
+                      OK
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase font-bold tracking-widest text-cottage-sage">Categoria</label>
+                    <select 
+                      className="w-full bg-transparent border-b border-wood-soft py-2 text-sm outline-none cursor-pointer"
+                      value={newItem.category}
+                      onChange={e => setNewItem({...newItem, category: e.target.value})}
+                    >
+                      <option value="Enxoval Delicado">Enxoval Delicado</option>
+                      <option value="Decor Baby">Decor Baby</option>
+                      <option value="Acessórios Afetivos">Acessórios Afetivos</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase font-bold tracking-widest text-cottage-sage">Status</label>
+                    <select 
+                      className="w-full bg-transparent border-b border-wood-soft py-2 text-sm outline-none cursor-pointer"
+                      value={newItem.availability}
+                      onChange={e => setNewItem({...newItem, availability: e.target.value as any})}
+                    >
+                      <option value="Pronta Entrega">Pronta Entrega</option>
+                      <option value="Sob Encomenda">Sob Encomenda</option>
+                      <option value="Vendido">Vendido</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-bold tracking-widest text-cottage-sage">Preço (R$)</label>
+                  <input 
+                    type="text" 
+                    placeholder="Opcional..."
+                    className="w-full bg-transparent border-b border-wood-soft py-2 focus:border-cottage-rose transition-colors outline-none text-sm"
+                    value={newItem.price || ''}
+                    onChange={e => setNewItem({...newItem, price: e.target.value})}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-bold tracking-widest text-cottage-sage">História da Peça</label>
+                  <textarea 
+                    rows={3}
+                    placeholder="Descrição afetiva e materiais..."
+                    className="w-full bg-transparent border-b border-wood-soft py-2 focus:border-cottage-rose transition-colors outline-none text-sm resize-none"
+                    value={newItem.desc || ''}
+                    onChange={e => setNewItem({...newItem, desc: e.target.value})}
+                  />
+                </div>
+
+                <button 
+                  type="submit"
+                  disabled={isUploading || !newItem.title || (newItem.images?.length || 0) === 0}
+                  className="w-full bg-cottage-rose text-white py-4 rounded-full text-[11px] uppercase tracking-widest font-bold shadow-lg hover:brightness-110 transition-all pt-10 mt-10 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isUploading ? 'Finalizando Upload...' : (editingId ? 'Salvar Alterações' : 'Registrar Nova Criação')}
+                </button>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <footer className="py-12 px-6 border-t border-cottage-wood/5 text-center text-cottage-wood/40 text-xs tracking-widest uppercase">
+        <p>© 2026 Anja Mila Ateliê. Feito à mão, com paciência e amor.</p>
+        <p className="mt-2 opacity-50">Transformando carinho em arte.</p>
+      </footer>
+    </div>
+  );
+}

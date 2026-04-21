@@ -1,0 +1,34 @@
+{
+  "entities": {
+    "CollectionItem": {
+      "title": "Collection Item",
+      "description": "A handmade craft item in the studio's collection.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "desc": { "type": "string" },
+        "price": { "type": "string" },
+        "availability": {
+          "type": "string",
+          "enum": ["Pronta Entrega", "Sob Encomenda", "Vendido"]
+        },
+        "images": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of URLs for images stored in Cloud Storage."
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "category", "images", "availability"]
+    }
+  },
+  "firestore": {
+    "/collections/{itemId}": {
+      "schema": "CollectionItem",
+      "description": "Store for ateliê items."
+    }
+  }
+}
