@@ -13,8 +13,7 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { 
-  signInWithRedirect,
-  getRedirectResult, 
+  signInWithPopup,
   GoogleAuthProvider, 
   onAuthStateChanged, 
   User,
@@ -86,21 +85,31 @@ export default function App() {
       }
     });
 
-    // Captura o resultado após o redirecionamento
-    getRedirectResult(auth).catch((error) => {
-      console.error("Erro no retorno do login:", error);
-    });
-
     return unsub;
   }, []);
 
   const login = async () => {
     try {
-      console.log("Iniciando login por redirecionamento...");
-      await signInWithRedirect(auth, googleProvider);
+      console.log("Iniciando login por popup...");
+      await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
       console.error("Falha ao iniciar login:", error);
-      alert("Não foi possível iniciar o login. Verifique se o domínio 'pierrespp.github.io' está autorizado no Firebase.");
+      const code = error?.code || '';
+      if (code === 'auth/unauthorized-domain') {
+        alert(
+          "Este endereço ainda não está autorizado no Firebase.\n\n" +
+          "Como liberar (passo único):\n" +
+          "1. Abra o Console do Firebase do projeto 'anja-mila-atelie'.\n" +
+          "2. Vá em Authentication > Settings > Authorized domains.\n" +
+          "3. Clique em 'Add domain' e adicione: " + window.location.hostname
+        );
+      } else if (code === 'auth/popup-blocked') {
+        alert("O navegador bloqueou a janela de login. Permita popups para este site e tente novamente.");
+      } else if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        // Usuário fechou. Sem alerta.
+      } else {
+        alert("Não foi possível fazer login: " + (error?.message || code || "erro desconhecido"));
+      }
     }
   };
 
