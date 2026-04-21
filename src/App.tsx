@@ -201,6 +201,28 @@ export default function App() {
     }
   };
 
+  const addImageUrl = (raw: string): boolean => {
+    const val = raw.trim();
+    if (!val) return false;
+    let parsed: URL;
+    try {
+      parsed = new URL(val);
+    } catch {
+      alert('Link inválido. Cole um endereço completo começando com https://');
+      return false;
+    }
+    if (parsed.protocol !== 'https:') {
+      alert('Por segurança, apenas links https:// são aceitos.');
+      return false;
+    }
+    if ((newItem.images?.length || 0) >= 10) {
+      alert('Limite de 10 fotos por peça atingido.');
+      return false;
+    }
+    setNewItem(prev => ({ ...prev, images: [...(prev.images || []), val] }));
+    return true;
+  };
+
   const removeUploadedImage = (url: string) => {
     setNewItem(prev => ({
       ...prev,
@@ -755,16 +777,15 @@ export default function App() {
 
                   <div className="flex gap-2 items-center">
                     <input 
-                      type="text" 
+                      type="url" 
                       id="image-url-input"
-                      placeholder="Ou cole o link da imagem aqui..."
+                      placeholder="Ou cole o link https:// da imagem..."
                       className="flex-1 bg-transparent border-b border-wood-soft py-2 focus:border-cottage-rose transition-colors outline-none text-xs italic"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
-                          const val = (e.currentTarget as HTMLInputElement).value;
-                          if (val) {
-                            setNewItem(prev => ({ ...prev, images: [...(prev.images || []), val] }));
+                          const val = (e.currentTarget as HTMLInputElement).value.trim();
+                          if (addImageUrl(val)) {
                             (e.currentTarget as HTMLInputElement).value = '';
                           }
                         }
@@ -774,8 +795,8 @@ export default function App() {
                       type="button"
                       onClick={() => {
                         const input = document.getElementById('image-url-input') as HTMLInputElement;
-                        if (input.value) {
-                          setNewItem(prev => ({ ...prev, images: [...(prev.images || []), input.value] }));
+                        const val = input.value.trim();
+                        if (addImageUrl(val)) {
                           input.value = '';
                         }
                       }}
