@@ -1,10 +1,10 @@
 {
-  "projectId": "gen-lang-client-0692977967",
-  "appId": "1:644910831422:web:1171fbedc7eb3552b7fe6f",
-  "apiKey": "AIzaSyDV-F2oOPwaqsvO_Ji5PIRj4JlYFurelYY",
-  "authDomain": "gen-lang-client-0692977967.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-8056406e-08dc-4664-8bba-29ed725654c2",
-  "storageBucket": "gen-lang-client-0692977967.firebasestorage.app",
-  "messagingSenderId": "644910831422",
-  "measurementId": ""
+  "projectId": "anja-mila-atelie",
+  "appId": "1:1090793932993:web:7d1d8181cfeb994cb99ac40",
+  "apiKey": "AIzaSyCpPwblutrwJaZ9FHMnqj8-QtyuCl125c",
+  "authDomain": "anja-mila-atelie.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "anja-mila-atelie.firebasestorage.app",
+  "messagingSenderId": "1090793932993",
+  "measurementId": "G-NCES3CB3L7"
 }
