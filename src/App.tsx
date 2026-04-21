@@ -13,7 +13,8 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { 
-  signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult, 
   GoogleAuthProvider, 
   onAuthStateChanged, 
   User,
@@ -75,20 +76,31 @@ export default function App() {
   React.useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
-      if (u?.email !== 'pierre.santos.p@gmail.com') {
+      if (u) {
+        console.log("Usuário logado:", u.email);
+        if (u.email === 'pierre.santos.p@gmail.com') {
+          setIsCuratorMode(true);
+        }
+      } else {
         setIsCuratorMode(false);
       }
     });
+
+    // Captura o resultado após o redirecionamento
+    getRedirectResult(auth).catch((error) => {
+      console.error("Erro no retorno do login:", error);
+    });
+
     return unsub;
   }, []);
 
   const login = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
-      setIsCuratorMode(true);
-    } catch (error) {
-      console.error("Login failed:", error);
-      alert("Falha ao autenticar com o Google.");
+      console.log("Iniciando login por redirecionamento...");
+      await signInWithRedirect(auth, googleProvider);
+    } catch (error: any) {
+      console.error("Falha ao iniciar login:", error);
+      alert("Não foi possível iniciar o login. Verifique se o domínio 'pierrespp.github.io' está autorizado no Firebase.");
     }
   };
 
