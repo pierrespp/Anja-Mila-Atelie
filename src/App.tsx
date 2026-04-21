@@ -13,8 +13,9 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { 
-  signInWithPopup,
-  GoogleAuthProvider, 
+  signInWithEmailAndPassword,
+  setPersistence,
+  browserLocalPersistence,
   onAuthStateChanged, 
   User,
   signOut 
@@ -22,7 +23,11 @@ import {
 import imageCompression from 'browser-image-compression';
 import { db, auth } from './firebase';
 
-const googleProvider = new GoogleAuthProvider();
+const OWNER_EMAIL = 'pierre.santos.p@gmail.com';
+
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  console.error('Falha ao configurar persistência de login:', err);
+});
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -61,6 +66,11 @@ export default function App() {
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [items, setItems] = React.useState<CollectionItem[]>([]);
   const [user, setUser] = React.useState<User | null>(null);
+  const [isLoginOpen, setIsLoginOpen] = React.useState(false);
+  const [loginEmail, setLoginEmail] = React.useState(OWNER_EMAIL);
+  const [loginPassword, setLoginPassword] = React.useState('');
+  const [loginError, setLoginError] = React.useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = React.useState(false);
   
   // Form State
   const [newItem, setNewItem] = React.useState<Partial<CollectionItem>>({
@@ -71,60 +81,61 @@ export default function App() {
 
 
 
-  // Auth (Google Login for owner)
+  // Auth (Email + Password)
   React.useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
-      if (u) {
-        console.log("Usuário logado:", u.email);
-        if (u.email === 'pierre.santos.p@gmail.com') {
-          setIsCuratorMode(true);
-        }
+      if (u && u.email === OWNER_EMAIL) {
+        console.log('Proprietária logada:', u.email);
+        setIsCuratorMode(true);
+        setIsLoginOpen(false);
       } else {
         setIsCuratorMode(false);
       }
     });
-
     return unsub;
   }, []);
 
-  const login = async () => {
+  const openLogin = () => {
+    setLoginPassword('');
+    setLoginError(null);
+    setIsLoginOpen(true);
+  };
+
+  const submitLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError(null);
+    setIsLoggingIn(true);
     try {
-      console.log("Iniciando login por popup...");
-      await signInWithPopup(auth, googleProvider);
-    } catch (error: any) {
-      console.error("Falha ao iniciar login:", error);
-      const code = error?.code || '';
-      if (code === 'auth/unauthorized-domain') {
-        alert(
-          "Este endereço ainda não está autorizado no Firebase.\n\n" +
-          "Como liberar (passo único):\n" +
-          "1. Abra o Console do Firebase do projeto 'anja-mila-atelie'.\n" +
-          "2. Vá em Authentication > Settings > Authorized domains.\n" +
-          "3. Clique em 'Add domain' e adicione: " + window.location.hostname
-        );
-      } else if (code === 'auth/popup-blocked') {
-        alert("O navegador bloqueou a janela de login. Permita popups para este site e tente novamente.");
-      } else if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
-        // Usuário fechou. Sem alerta.
-      } else {
-        alert("Não foi possível fazer login: " + (error?.message || code || "erro desconhecido"));
-      }
+      await signInWithEmailAndPassword(auth, loginEmail.trim(), loginPassword);
+      // onAuthStateChanged cuidará de fechar o modal e ativar o modo curadoria
+    } catch (err: any) {
+      const code = err?.code || '';
+      let msg = 'Não foi possível entrar. Verifique e-mail e senha.';
+      if (code === 'auth/invalid-email') msg = 'E-mail inválido.';
+      else if (code === 'auth/user-not-found') msg = 'Usuária não encontrada. Crie a conta no Firebase Authentication.';
+      else if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') msg = 'Senha incorreta.';
+      else if (code === 'auth/too-many-requests') msg = 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
+      else if (code === 'auth/network-request-failed') msg = 'Sem conexão. Verifique sua internet.';
+      else if (code === 'auth/operation-not-allowed') msg = 'O método de login por e-mail e senha não está habilitado no Firebase.';
+      setLoginError(msg);
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
-  const logout = () => {
-    signOut(auth);
+  const logout = async () => {
+    await signOut(auth);
     setIsCuratorMode(false);
   };
 
   const toggleCuratorMode = () => {
-    if (!user) {
-      login();
-    } else if (user.email === 'pierre.santos.p@gmail.com') {
+    if (user && user.email === OWNER_EMAIL) {
+      // Já logada: alterna o modo curadoria
       setIsCuratorMode(!isCuratorMode);
     } else {
-      alert("Apenas o proprietário pode acessar o Modo Curadoria.");
+      // Não logada (ou e-mail diferente): abre modal
+      openLogin();
     }
   };
 
@@ -580,7 +591,7 @@ export default function App() {
         <Scissors size={20} className={isCuratorMode ? 'animate-pulse' : ''} />
       </button>
 
-      {user && user.email === 'pierre.santos.p@gmail.com' && (
+      {user && user.email === OWNER_EMAIL && (
         <button 
           onClick={logout}
           className="fixed bottom-8 left-24 z-50 bg-white/80 backdrop-blur-md text-cottage-wood text-[9px] font-bold uppercase tracking-widest px-4 py-2 rounded-full border border-wood-soft hover:bg-white transition-all shadow-lg"
@@ -588,6 +599,82 @@ export default function App() {
           Sair do Ateliê
         </button>
       )}
+
+      {/* Login Modal */}
+      <AnimatePresence>
+        {isLoginOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isLoggingIn && setIsLoginOpen(false)}
+              className="fixed inset-0 bg-cottage-wood/40 backdrop-blur-sm z-[80]"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 220 }}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[90] w-[90%] max-w-sm bg-cottage-cream rounded-3xl shadow-2xl p-8"
+            >
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h3 className="font-serif text-2xl italic text-cottage-wood">Modo Curadoria</h3>
+                  <p className="text-[10px] uppercase tracking-widest text-cottage-wood/50 mt-1">Acesso da Artesã</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => !isLoggingIn && setIsLoginOpen(false)}
+                  className="text-cottage-wood opacity-40 hover:opacity-100 transition-opacity"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={submitLogin} className="space-y-5">
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-bold tracking-widest text-cottage-sage">E-mail</label>
+                  <input
+                    type="email"
+                    required
+                    autoComplete="email"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    className="w-full bg-transparent border-b border-wood-soft py-2 focus:border-cottage-rose transition-colors outline-none text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-bold tracking-widest text-cottage-sage">Senha</label>
+                  <input
+                    type="password"
+                    required
+                    autoComplete="current-password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    className="w-full bg-transparent border-b border-wood-soft py-2 focus:border-cottage-rose transition-colors outline-none text-sm"
+                  />
+                </div>
+
+                {loginError && (
+                  <div className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                    {loginError}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isLoggingIn || !loginPassword}
+                  className="w-full bg-cottage-rose text-white py-3 rounded-full text-[11px] uppercase tracking-widest font-bold shadow-lg hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isLoggingIn ? <><Loader2 className="animate-spin" size={14} /> Entrando...</> : 'Entrar no Ateliê'}
+                </button>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Add/Edit Item Slide-over Form */}
       <AnimatePresence>
