@@ -1024,16 +1024,7 @@ export default function App() {
               Para encomendas personalizadas ou dúvidas sobre prazos, entre em contato diretamente conosco. Será um prazer te ouvir.
             </p>
             <div className="flex flex-col items-center gap-6 pt-6">
-              <motion.a 
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                href="https://wa.me/5500000000000" 
-                className="flex items-center gap-2 border border-cottage-rose text-cottage-rose hover:bg-cottage-rose hover:text-white px-8 py-3 rounded-full text-[11px] font-bold uppercase tracking-widest transition-all duration-300"
-              >
-                <MessageCircle size={18} />
-                Encomendar via WhatsApp
-              </motion.a>
-              <div className="text-[10px] opacity-40">© 2026 Anja Mila Ateliê — Feito à mão com paciência e amor.</div>
+              <div className="text-[10px] text-cottage-cream/70 tracking-widest uppercase">© 2026 Anja Mila Ateliê — Feito à mão com paciência e amor.</div>
             </div>
           </motion.div>
         </div>
@@ -1510,9 +1501,9 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <footer className="py-12 px-6 border-t border-cottage-wood/5 text-center text-cottage-wood/40 text-xs tracking-widest uppercase">
+      <footer className="py-12 px-6 border-t border-cottage-wood/10 text-center text-cottage-wood/80 text-xs tracking-widest uppercase">
         <p>© 2026 Anja Mila Ateliê. Feito à mão, com paciência e amor.</p>
-        <p className="mt-2 opacity-50">Transformando carinho em arte.</p>
+        <p className="mt-2 italic normal-case tracking-normal text-sm text-cottage-rose">Transformando carinho em arte.</p>
       </footer>
     </div>
   );
