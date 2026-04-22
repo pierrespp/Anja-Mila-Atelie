@@ -1,0 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,600;1,400&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Playfair Display", serif;
+  --font-sans: "Montserrat", sans-serif;
+  
+  --color-cottage-cream: #F1EAD7;
+  --color-cottage-rose: #D4A373;
+  --color-cottage-sage: #A3B18A;
+  --color-cottage-wood: #5E503F;
+
+  --border-color-wood-soft: rgba(94, 80, 63, 0.15);
+}
+
+@utility cottage-filter {
+  filter: saturate(0.8) sepia(0.2) contrast(0.9);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-cottage-cream text-cottage-wood font-sans;
+}
