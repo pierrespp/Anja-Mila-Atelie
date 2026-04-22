@@ -24,6 +24,7 @@ import {
 } from 'firebase/auth';
 import imageCompression from 'browser-image-compression';
 import { db, auth } from './firebase';
+import logo from './assets/logo.png';
 
 const OWNER_EMAIL = 'pierre.santos.p@gmail.com';
 const CATEGORIES_DOC_ID = 'app-categories';
@@ -506,9 +507,14 @@ export default function App() {
       {/* Navbar - Fixed (z-40) */}
       <nav className="fixed top-0 left-0 right-0 z-40 bg-cottage-cream/80 backdrop-blur-md border-b border-wood-soft">
         <div className="max-w-7xl mx-auto px-12 h-20 flex items-center justify-between">
-          <h1 className="font-serif text-2xl font-bold text-cottage-wood italic tracking-tight">
-            Anja Mila Ateliê
-          </h1>
+          <a href="#" className="flex items-center gap-3 group" aria-label="Anja Mila Ateliê">
+            <img
+              src={logo}
+              alt="Anja Mila Ateliê"
+              className="h-12 md:h-14 w-auto object-contain transition-transform duration-500 group-hover:scale-105"
+            />
+            <span className="sr-only">Anja Mila Ateliê</span>
+          </a>
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-10">
