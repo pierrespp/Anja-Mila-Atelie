@@ -509,14 +509,25 @@ export default function App() {
         <img
           src={logo}
           alt=""
-          className="absolute -top-24 -right-24 w-[28rem] md:w-[36rem] opacity-[0.07] rotate-12 select-none"
+          className="absolute -top-20 -right-32 w-[32rem] md:w-[44rem] opacity-[0.18] rotate-12 select-none"
         />
         <img
           src={logo}
           alt=""
-          className="absolute -bottom-32 -left-24 w-[26rem] md:w-[34rem] opacity-[0.06] -rotate-12 select-none"
+          className="absolute -bottom-28 -left-32 w-[30rem] md:w-[40rem] opacity-[0.16] -rotate-12 select-none"
         />
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[40rem] h-[40rem] bg-cottage-rose/10 rounded-full blur-3xl" />
+        <img
+          src={logo}
+          alt=""
+          className="absolute top-1/2 -translate-y-1/2 -right-40 w-[24rem] md:w-[32rem] opacity-[0.10] -rotate-6 select-none hidden md:block"
+        />
+        <img
+          src={logo}
+          alt=""
+          className="absolute top-1/3 -left-40 w-[22rem] md:w-[28rem] opacity-[0.10] rotate-6 select-none hidden md:block"
+        />
+        <div className="absolute top-1/4 left-1/3 w-[28rem] h-[28rem] bg-cottage-rose/15 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-[24rem] h-[24rem] bg-cottage-sage/15 rounded-full blur-3xl" />
       </div>
 
       {/* Navbar - Fixed (z-40) */}
