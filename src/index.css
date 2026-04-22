@@ -4,7 +4,7 @@
 @theme {
   --font-serif: "Playfair Display", serif;
   --font-sans: "Montserrat", sans-serif;
-  
+
   --color-cottage-cream: #F1EAD7;
   --color-cottage-rose: #D4A373;
   --color-cottage-sage: #A3B18A;
@@ -23,4 +23,14 @@ html {
 
 body {
   @apply bg-cottage-cream text-cottage-wood font-sans;
+}
+
+/* Dark Mode */
+.dark body {
+  @apply bg-cottage-wood text-cottage-cream;
+}
+
+.dark {
+  --color-cottage-cream: #5E503F;
+  --color-cottage-wood: #F1EAD7;
 }

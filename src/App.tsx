@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MessageCircle, Instagram, Heart, Scissors, Package, Menu, X, Plus, Image as ImageIcon, Trash2, Camera, Loader2, FolderPlus } from 'lucide-react';
+import { MessageCircle, Instagram, Heart, Scissors, Package, Menu, X, Plus, Image as ImageIcon, Trash2, Camera, Loader2, FolderPlus, Share2, Search, SortAsc, Moon, Sun, Facebook } from 'lucide-react';
 import {
   collection,
   addDoc,
@@ -27,6 +27,7 @@ import { db, auth } from './firebase';
 
 const OWNER_EMAIL = 'pierre.santos.p@gmail.com';
 const CATEGORIES_DOC_ID = 'app-categories';
+const SOCIAL_LINKS_DOC_ID = 'social-links';
 
 setPersistence(auth, browserLocalPersistence).catch((err) => {
   console.error('Falha ao configurar persistência de login:', err);
@@ -59,6 +60,7 @@ interface CollectionItem {
   desc: string;
   price?: string;
   availability: 'Pronta Entrega' | 'Sob Encomenda' | 'Vendido';
+  createdAt?: any;
 }
 
 export default function App() {
@@ -79,6 +81,21 @@ export default function App() {
   const [categories, setCategories] = React.useState<string[]>(['Enxoval Delicado', 'Decor Baby', 'Acessórios Afetivos']);
   const [isCategoriesOpen, setIsCategoriesOpen] = React.useState(false);
   const [newCategoryName, setNewCategoryName] = React.useState('');
+
+  // Social Links Management
+  const [socialLinks, setSocialLinks] = React.useState({ instagram: '', facebook: '', whatsapp: '' });
+  const [isSocialLinksOpen, setIsSocialLinksOpen] = React.useState(false);
+  const [tempInstagram, setTempInstagram] = React.useState('');
+  const [tempFacebook, setTempFacebook] = React.useState('');
+  const [tempWhatsapp, setTempWhatsapp] = React.useState('');
+
+  // Search, Sort, Pagination
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const [sortBy, setSortBy] = React.useState<'recent' | 'price-asc' | 'price-desc' | 'name'>('recent');
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const [darkMode, setDarkMode] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const itemsPerPage = 12;
 
   // Form State
   const [newItem, setNewItem] = React.useState<Partial<CollectionItem>>({
@@ -121,6 +138,27 @@ export default function App() {
       }
     };
     loadCategories();
+  }, []);
+
+  // Load social links from Firestore
+  React.useEffect(() => {
+    const loadSocialLinks = async () => {
+      try {
+        const docRef = doc(db, 'settings', SOCIAL_LINKS_DOC_ID);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setSocialLinks({
+            instagram: data.instagram || '',
+            facebook: data.facebook || '',
+            whatsapp: data.whatsapp || ''
+          });
+        }
+      } catch (error) {
+        console.error('Erro ao carregar links sociais:', error);
+      }
+    };
+    loadSocialLinks();
   }, []);
 
   const openLogin = () => {
@@ -168,6 +206,7 @@ export default function App() {
 
   // Real-time Firestore sync
   React.useEffect(() => {
+    setIsLoading(true);
     const q = query(collection(db, 'collections'), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({
@@ -175,9 +214,67 @@ export default function App() {
         id: doc.id
       })) as CollectionItem[];
       setItems(data);
+      setIsLoading(false);
     });
     return unsub;
   }, []);
+
+  // Dark mode
+  React.useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
+
+  // Filter, Sort, Paginate
+  const filteredItems = React.useMemo(() => {
+    let filtered = items.filter(item =>
+      item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.desc?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // Sort
+    filtered.sort((a, b) => {
+      switch(sortBy) {
+        case 'price-asc':
+          return (parseFloat(a.price || '0') - parseFloat(b.price || '0'));
+        case 'price-desc':
+          return (parseFloat(b.price || '0') - parseFloat(a.price || '0'));
+        case 'name':
+          return a.title.localeCompare(b.title);
+        case 'recent':
+        default:
+          return 0;
+      }
+    });
+
+    return filtered;
+  }, [items, searchTerm, sortBy]);
+
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+  const paginatedItems = filteredItems.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Share function
+  const shareProduct = (item: CollectionItem) => {
+    const url = window.location.href;
+    const text = `Confira: ${item.title} - Anja Mila Ateliê`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
+  // Check if item is new (last 7 days)
+  const isNewItem = (item: CollectionItem) => {
+    if (!item.createdAt) return false;
+    const created = item.createdAt.toDate?.() || new Date(item.createdAt);
+    const daysDiff = (Date.now() - created.getTime()) / (1000 * 60 * 60 * 24);
+    return daysDiff <= 7;
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
@@ -344,6 +441,66 @@ export default function App() {
     await saveCategories(updated);
   };
 
+  // Social Links Management Functions
+  const validateUrl = (url: string): boolean => {
+    if (!url.trim()) return true; // Empty is valid
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+    } catch {
+      return false;
+    }
+  };
+
+  const saveSocialLinks = async () => {
+    if (!validateUrl(tempInstagram)) {
+      alert('Link do Instagram inválido. Use um URL completo (https://...)');
+      return;
+    }
+    if (!validateUrl(tempFacebook)) {
+      alert('Link do Facebook inválido. Use um URL completo (https://...)');
+      return;
+    }
+    if (!validateUrl(tempWhatsapp)) {
+      alert('Link do WhatsApp inválido. Use um URL completo (https://wa.me/...)');
+      return;
+    }
+
+    try {
+      const docRef = doc(db, 'settings', SOCIAL_LINKS_DOC_ID);
+      await setDoc(docRef, {
+        instagram: tempInstagram.trim(),
+        facebook: tempFacebook.trim(),
+        whatsapp: tempWhatsapp.trim()
+      });
+      setSocialLinks({
+        instagram: tempInstagram.trim(),
+        facebook: tempFacebook.trim(),
+        whatsapp: tempWhatsapp.trim()
+      });
+      setIsSocialLinksOpen(false);
+    } catch (error) {
+      console.error('Erro ao salvar links:', error);
+      alert('Não foi possível salvar os links.');
+    }
+  };
+
+  const openSocialLinksModal = () => {
+    setTempInstagram(socialLinks.instagram);
+    setTempFacebook(socialLinks.facebook);
+    setTempWhatsapp(socialLinks.whatsapp);
+    setIsSocialLinksOpen(true);
+  };
+
+  const handleSocialClick = (platform: 'instagram' | 'facebook' | 'whatsapp') => {
+    if (isCuratorMode) {
+      openSocialLinksModal();
+    } else {
+      const url = socialLinks[platform];
+      if (url) window.open(url, '_blank');
+    }
+  };
+
   return (
     <div className="min-h-screen selection:bg-cottage-rose/30 relative">
       {/* Navbar - Fixed (z-40) */}
@@ -476,9 +633,57 @@ export default function App() {
           )}
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <AnimatePresence mode="popLayout">
-            {items.map((item) => (
+        {/* Search, Sort, Dark Mode Controls */}
+        <div className="mb-12 flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-cottage-wood/40" size={18} />
+            <input
+              type="text"
+              placeholder="Buscar produtos..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              className="w-full pl-10 pr-4 py-3 rounded-full border border-wood-soft bg-white dark:bg-cottage-wood dark:text-cottage-cream focus:border-cottage-rose outline-none transition-colors"
+            />
+          </div>
+
+          <div className="flex gap-3 items-center">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="px-4 py-2 rounded-full border border-wood-soft bg-white dark:bg-cottage-wood dark:text-cottage-cream text-sm outline-none cursor-pointer"
+            >
+              <option value="recent">Mais Recentes</option>
+              <option value="name">Nome A-Z</option>
+              <option value="price-asc">Menor Preço</option>
+              <option value="price-desc">Maior Preço</option>
+            </select>
+
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-2 rounded-full border border-wood-soft hover:bg-cottage-wood/5 dark:hover:bg-cottage-cream/10 transition-colors"
+              title={darkMode ? 'Modo Claro' : 'Modo Escuro'}
+            >
+              {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+          </div>
+        </div>
+
+        {/* Loading Skeleton */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="aspect-[4/5] bg-cottage-wood/10 dark:bg-cottage-cream/10 rounded-3xl mb-6" />
+                <div className="h-6 bg-cottage-wood/10 dark:bg-cottage-cream/10 rounded w-3/4 mb-2" />
+                <div className="h-4 bg-cottage-wood/10 dark:bg-cottage-cream/10 rounded w-1/2" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <AnimatePresence mode="popLayout">
+                {paginatedItems.map((item) => (
               <motion.div 
                 key={item.id}
                 layout
@@ -490,14 +695,14 @@ export default function App() {
               >
                 {isCuratorMode && (
                   <div className="absolute top-4 right-4 z-20 flex gap-2">
-                    <button 
+                    <button
                       onClick={() => openEdit(item)}
                       className="bg-white/80 p-2 rounded-full text-cottage-rose hover:text-white hover:bg-cottage-rose transition-all shadow-sm"
                       title="Editar Peça"
                     >
                       <Scissors size={14} />
                     </button>
-                    <button 
+                    <button
                       onClick={() => removeItem(item.id)}
                       className="bg-white/80 p-2 rounded-full text-red-400 hover:text-red-600 hover:bg-white transition-all shadow-sm"
                       title="Excluir Peça"
@@ -506,13 +711,23 @@ export default function App() {
                     </button>
                   </div>
                 )}
-                
+
+                {/* Share Button */}
+                <button
+                  onClick={() => shareProduct(item)}
+                  className="absolute top-4 left-4 z-20 bg-white/80 p-2 rounded-full text-cottage-sage hover:text-white hover:bg-cottage-sage transition-all shadow-sm"
+                  title="Compartilhar"
+                >
+                  <Share2 size={14} />
+                </button>
+
                 <div className="relative aspect-[4/5] overflow-hidden rounded-3xl shadow-sm mb-6">
-                  <img 
-                    src={item.images[0]} 
+                  <img
+                    src={item.images[0]}
                     alt={item.title}
                     className="w-full h-full object-cover transition-transform duration-[1.5s] ease-out group-hover:scale-110 cottage-filter"
                     referrerPolicy="no-referrer"
+                    loading="lazy"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                   <div className="absolute bottom-6 left-6 text-white opacity-0 group-hover:opacity-100 transition-all duration-700 translate-y-4 group-hover:translate-y-0">
@@ -520,8 +735,16 @@ export default function App() {
                     <div className="text-[10px] uppercase tracking-widest opacity-80">{item.category}</div>
                     {item.price && <div className="text-sm mt-2 font-medium">R$ {item.price}</div>}
                   </div>
-                  {item.availability && (
-                    <div className="absolute top-6 left-6 bg-cottage-cream/90 text-cottage-wood text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border border-wood-soft">
+
+                  {/* New Badge */}
+                  {isNewItem(item) && (
+                    <div className="absolute top-6 left-6 bg-cottage-rose text-white text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full shadow-lg animate-pulse">
+                      Novo
+                    </div>
+                  )}
+
+                  {item.availability && !isNewItem(item) && (
+                    <div className="absolute top-6 left-6 bg-cottage-cream/90 dark:bg-cottage-wood/90 text-cottage-wood dark:text-cottage-cream text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border border-wood-soft">
                       {item.availability}
                     </div>
                   )}
@@ -531,12 +754,49 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                <h4 className="font-serif text-xl text-cottage-wood mb-2">{item.title}</h4>
-                <p className="text-[10px] text-cottage-wood/50 uppercase tracking-[0.2em]">{item.desc}</p>
+                <h4 className="font-serif text-xl text-cottage-wood dark:text-cottage-cream mb-2">{item.title}</h4>
+                <p className="text-[10px] text-cottage-wood/50 dark:text-cottage-cream/50 uppercase tracking-[0.2em]">{item.desc}</p>
               </motion.div>
             ))}
           </AnimatePresence>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="mt-16 flex justify-center items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-4 py-2 rounded-full border border-wood-soft disabled:opacity-30 hover:bg-cottage-wood/5 dark:hover:bg-cottage-cream/10 transition-colors"
+            >
+              Anterior
+            </button>
+
+            {[...Array(totalPages)].map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentPage(i + 1)}
+                className={`w-10 h-10 rounded-full transition-colors ${
+                  currentPage === i + 1
+                    ? 'bg-cottage-rose text-white'
+                    : 'border border-wood-soft hover:bg-cottage-wood/5 dark:hover:bg-cottage-cream/10'
+                }`}
+              >
+                {i + 1}
+              </button>
+            ))}
+
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 rounded-full border border-wood-soft disabled:opacity-30 hover:bg-cottage-wood/5 dark:hover:bg-cottage-cream/10 transition-colors"
+            >
+              Próxima
+            </button>
+          </div>
+        )}
+          </>
+        )}
       </section>
 
       {/* Sobre Section */}
@@ -684,13 +944,38 @@ export default function App() {
       </button>
 
       {user && user.email === OWNER_EMAIL && (
-        <button 
+        <button
           onClick={logout}
           className="fixed bottom-8 left-24 z-50 bg-white/80 backdrop-blur-md text-cottage-wood text-[9px] font-bold uppercase tracking-widest px-4 py-2 rounded-full border border-wood-soft hover:bg-white transition-all shadow-lg"
         >
           Sair do Ateliê
         </button>
       )}
+
+      {/* Social Media Buttons */}
+      <div className="fixed bottom-8 right-8 z-50 flex flex-col gap-3">
+        <button
+          onClick={() => handleSocialClick('instagram')}
+          className="p-4 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-2xl hover:scale-110 transition-transform"
+          title={isCuratorMode ? 'Configurar Instagram' : 'Instagram'}
+        >
+          <Instagram size={20} />
+        </button>
+        <button
+          onClick={() => handleSocialClick('facebook')}
+          className="p-4 rounded-full bg-blue-600 text-white shadow-2xl hover:scale-110 transition-transform"
+          title={isCuratorMode ? 'Configurar Facebook' : 'Facebook'}
+        >
+          <Facebook size={20} />
+        </button>
+        <button
+          onClick={() => handleSocialClick('whatsapp')}
+          className="p-4 rounded-full bg-green-500 text-white shadow-2xl hover:scale-110 transition-transform"
+          title={isCuratorMode ? 'Configurar WhatsApp' : 'WhatsApp'}
+        >
+          <MessageCircle size={20} />
+        </button>
+      </div>
 
       {/* Login Modal */}
       <AnimatePresence>
@@ -1028,6 +1313,91 @@ export default function App() {
                   className="w-full bg-cottage-rose text-white py-3 rounded-full text-[11px] uppercase tracking-widest font-bold shadow-lg hover:brightness-110 transition-all"
                 >
                   Concluído
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Social Links Management Modal */}
+      <AnimatePresence>
+        {isSocialLinksOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSocialLinksOpen(false)}
+              className="fixed inset-0 bg-cottage-wood/40 backdrop-blur-sm z-[80]"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 220 }}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[90] w-[90%] max-w-md bg-cottage-cream rounded-3xl shadow-2xl p-8"
+            >
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h3 className="font-serif text-2xl italic text-cottage-wood">Redes Sociais</h3>
+                  <p className="text-[10px] uppercase tracking-widest text-cottage-wood/50 mt-1">Configure os links</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsSocialLinksOpen(false)}
+                  className="text-cottage-wood opacity-40 hover:opacity-100 transition-opacity"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <label className="text-[10px] uppercase font-bold tracking-widest text-cottage-sage flex items-center gap-2">
+                    <Instagram size={14} /> Instagram
+                  </label>
+                  <input
+                    type="url"
+                    value={tempInstagram}
+                    onChange={(e) => setTempInstagram(e.target.value)}
+                    placeholder="https://instagram.com/seu_perfil"
+                    className="w-full bg-transparent border-b border-wood-soft py-2 focus:border-cottage-sage transition-colors outline-none text-sm"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-[10px] uppercase font-bold tracking-widest text-cottage-sage flex items-center gap-2">
+                    <Facebook size={14} /> Facebook
+                  </label>
+                  <input
+                    type="url"
+                    value={tempFacebook}
+                    onChange={(e) => setTempFacebook(e.target.value)}
+                    placeholder="https://facebook.com/sua_pagina"
+                    className="w-full bg-transparent border-b border-wood-soft py-2 focus:border-cottage-sage transition-colors outline-none text-sm"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-[10px] uppercase font-bold tracking-widest text-cottage-sage flex items-center gap-2">
+                    <MessageCircle size={14} /> WhatsApp
+                  </label>
+                  <input
+                    type="url"
+                    value={tempWhatsapp}
+                    onChange={(e) => setTempWhatsapp(e.target.value)}
+                    placeholder="https://wa.me/5511999999999"
+                    className="w-full bg-transparent border-b border-wood-soft py-2 focus:border-cottage-sage transition-colors outline-none text-sm"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={saveSocialLinks}
+                  className="w-full bg-cottage-sage text-white py-3 rounded-full text-[11px] uppercase tracking-widest font-bold shadow-lg hover:brightness-110 transition-all"
+                >
+                  Salvar Links
                 </button>
               </div>
             </motion.div>
