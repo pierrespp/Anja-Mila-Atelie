@@ -503,15 +503,30 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen selection:bg-cottage-rose/30 relative">
+    <div className="min-h-screen selection:bg-cottage-rose/30 relative overflow-hidden">
+      {/* Decorative watermarks - fixed in viewport, behind content */}
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
+        <img
+          src={logo}
+          alt=""
+          className="absolute -top-24 -right-24 w-[28rem] md:w-[36rem] opacity-[0.07] rotate-12 select-none"
+        />
+        <img
+          src={logo}
+          alt=""
+          className="absolute -bottom-32 -left-24 w-[26rem] md:w-[34rem] opacity-[0.06] -rotate-12 select-none"
+        />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[40rem] h-[40rem] bg-cottage-rose/10 rounded-full blur-3xl" />
+      </div>
+
       {/* Navbar - Fixed (z-40) */}
       <nav className="fixed top-0 left-0 right-0 z-40 bg-cottage-cream/80 backdrop-blur-md border-b border-wood-soft">
-        <div className="max-w-7xl mx-auto px-12 h-20 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-12 h-24 flex items-center justify-between">
           <a href="#" className="flex items-center gap-3 group" aria-label="Anja Mila Ateliê">
             <img
               src={logo}
               alt="Anja Mila Ateliê"
-              className="h-14 md:h-16 w-auto object-contain transition-transform duration-500 group-hover:scale-105"
+              className="h-16 md:h-20 w-auto object-contain transition-transform duration-500 group-hover:scale-105"
             />
             <span className="sr-only">Anja Mila Ateliê</span>
           </a>
@@ -568,7 +583,7 @@ export default function App() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative h-screen flex items-center justify-center pt-20 overflow-hidden">
+      <section className="relative h-screen flex items-center justify-center pt-24 overflow-hidden">
         <div className="absolute inset-0">
           <img 
             src="https://images.unsplash.com/photo-1528576273885-9e2c30d7758a?q=80&w=2070&auto=format&fit=crop" 
