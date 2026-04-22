@@ -1,3 +1,15 @@
+# 📋 Instruções para Claude Code
+
+## ⚠️ REGRAS OBRIGATÓRIAS
+
+1. **SEMPRE ler este arquivo ANTES de executar qualquer comando do usuário**
+2. **SEMPRE perguntar ao usuário quando houver múltiplas opções ou falta de informação**
+3. **NUNCA executar comandos sem confirmação quando houver dúvidas**
+4. **Respostas CONCISAS - usar mínimo de palavras possível para economizar tokens**
+5. **Evitar repetições e explicações longas**
+
+---
+
 # 🧶 Manual de Publicação: Anja Mila Ateliê
 
 Este guia explica como colocar seu site online manualmente se você baixou o código como ZIP.
