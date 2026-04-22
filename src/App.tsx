@@ -25,6 +25,8 @@ import {
 import imageCompression from 'browser-image-compression';
 import { db, auth } from './firebase';
 import logo from './assets/logo.png';
+import portraitImg from './assets/maria-helena-portrait.png';
+import atelierImg from './assets/maria-helena-atelier.png';
 
 const OWNER_EMAIL = 'pierre.santos.p@gmail.com';
 const CATEGORIES_DOC_ID = 'app-categories';
@@ -889,15 +891,41 @@ export default function App() {
             }}
             className="relative"
           >
-            <div className="aspect-square rounded-3xl overflow-hidden shadow-2xl">
-              <img 
-                src="https://images.unsplash.com/photo-1556905055-8f358a7a47b2?q=80&w=1974&auto=format&fit=crop" 
-                alt="Artesã no Ateliê Anja Mila" 
-                className="w-full h-full object-cover cottage-filter"
-                referrerPolicy="no-referrer"
+            {/* Soft halos behind composition */}
+            <div className="absolute -top-10 -left-10 w-56 h-56 bg-cottage-sage/15 rounded-full blur-3xl -z-10" />
+            <div className="absolute -bottom-12 -right-12 w-64 h-64 bg-cottage-rose/15 rounded-full blur-3xl -z-10" />
+
+            {/* Main portrait */}
+            <div className="aspect-[3/4] rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
+              <img
+                src={portraitImg}
+                alt="Maria Helena, artesã do Anja Mila Ateliê, segurando uma agenda artesanal"
+                className="w-full h-full object-cover"
               />
             </div>
-            <div className="absolute -bottom-8 -right-8 w-48 h-48 bg-cottage-rose/10 rounded-full blur-3xl -z-10" />
+
+            {/* Secondary "polaroid" image — overlapping bottom-right */}
+            <motion.div
+              initial={{ opacity: 0, y: 30, rotate: -6 }}
+              whileInView={{ opacity: 1, y: 0, rotate: 4 }}
+              viewport={{ once: true }}
+              transition={{ duration: 1, delay: 0.4 }}
+              className="hidden sm:block absolute -bottom-12 -right-6 md:-right-12 w-44 md:w-56 aspect-[3/4] rounded-2xl overflow-hidden shadow-2xl border-4 border-white"
+            >
+              <img
+                src={atelierImg}
+                alt="Maria Helena no ateliê com tecidos e máquinas de costura"
+                className="w-full h-full object-cover"
+              />
+            </motion.div>
+
+            {/* Decorative tag */}
+            <div className="hidden md:flex absolute -top-6 -right-6 items-center justify-center w-24 h-24 bg-cottage-cream rounded-full shadow-lg border border-wood-soft rotate-12">
+              <div className="text-center">
+                <div className="font-serif text-cottage-rose text-2xl leading-none">+30</div>
+                <div className="text-[8px] uppercase tracking-widest text-cottage-wood/70 mt-1">anos<br/>de ofício</div>
+              </div>
+            </div>
           </motion.div>
 
           <motion.div 
