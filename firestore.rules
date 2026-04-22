@@ -31,6 +31,11 @@ service cloud.firestore {
       allow delete: if isOwner();
     }
 
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
     match /test/connection {
       allow read: if true;
     }
