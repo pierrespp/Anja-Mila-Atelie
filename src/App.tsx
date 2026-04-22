@@ -504,30 +504,75 @@ export default function App() {
 
   return (
     <div className="min-h-screen selection:bg-cottage-rose/30 relative overflow-hidden">
-      {/* Decorative watermarks - fixed in viewport, behind content */}
+      {/* Decorative botanical background — fixed in viewport, behind content */}
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
-        <img
-          src={logo}
-          alt=""
-          className="absolute -top-20 -right-32 w-[32rem] md:w-[44rem] opacity-[0.18] rotate-12 select-none"
-        />
-        <img
-          src={logo}
-          alt=""
-          className="absolute -bottom-28 -left-32 w-[30rem] md:w-[40rem] opacity-[0.16] -rotate-12 select-none"
-        />
-        <img
-          src={logo}
-          alt=""
-          className="absolute top-1/2 -translate-y-1/2 -right-40 w-[24rem] md:w-[32rem] opacity-[0.10] -rotate-6 select-none hidden md:block"
-        />
-        <img
-          src={logo}
-          alt=""
-          className="absolute top-1/3 -left-40 w-[22rem] md:w-[28rem] opacity-[0.10] rotate-6 select-none hidden md:block"
-        />
-        <div className="absolute top-1/4 left-1/3 w-[28rem] h-[28rem] bg-cottage-rose/15 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-[24rem] h-[24rem] bg-cottage-sage/15 rounded-full blur-3xl" />
+        {/* Soft warm halos for depth */}
+        <div className="absolute -top-32 -left-32 w-[32rem] h-[32rem] bg-cottage-rose/20 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 -right-40 w-[36rem] h-[36rem] bg-cottage-sage/15 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 left-1/3 w-[30rem] h-[30rem] bg-cottage-rose/15 rounded-full blur-3xl" />
+
+        {/* Eucalyptus sprig — top right */}
+        <svg className="absolute top-28 -right-8 w-72 md:w-96 opacity-30 -rotate-12" viewBox="0 0 200 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M100 280 Q105 200 95 130 Q88 80 100 20" stroke="#A3B18A" strokeWidth="1.5" strokeLinecap="round"/>
+          {[40, 70, 100, 130, 160, 190, 220, 250].map((y, i) => (
+            <g key={i}>
+              <ellipse cx={i % 2 === 0 ? 78 : 122} cy={y} rx="14" ry="9" fill="#A3B18A" opacity="0.7" transform={`rotate(${i % 2 === 0 ? -25 : 25} ${i % 2 === 0 ? 78 : 122} ${y})`}/>
+              <ellipse cx={i % 2 === 0 ? 60 : 140} cy={y - 5} rx="12" ry="7" fill="#A3B18A" opacity="0.55" transform={`rotate(${i % 2 === 0 ? -45 : 45} ${i % 2 === 0 ? 60 : 140} ${y - 5})`}/>
+            </g>
+          ))}
+        </svg>
+
+        {/* Lavender sprig — bottom left */}
+        <svg className="absolute bottom-16 -left-4 w-64 md:w-80 opacity-30 rotate-6" viewBox="0 0 160 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M80 270 Q82 180 78 100 Q76 60 80 30" stroke="#A3B18A" strokeWidth="1.5" strokeLinecap="round"/>
+          {[35, 50, 65, 80, 95, 110, 125].map((y, i) => (
+            <g key={i}>
+              <ellipse cx={70 - (i % 2) * 4} cy={y} rx="6" ry="4" fill="#9B7B8C" opacity="0.75"/>
+              <ellipse cx={88 + (i % 2) * 4} cy={y + 4} rx="6" ry="4" fill="#9B7B8C" opacity="0.75"/>
+              <ellipse cx={80} cy={y - 2} rx="5" ry="3.5" fill="#B89AAA" opacity="0.7"/>
+            </g>
+          ))}
+          <ellipse cx="60" cy="180" rx="16" ry="6" fill="#A3B18A" opacity="0.55" transform="rotate(-30 60 180)"/>
+          <ellipse cx="100" cy="210" rx="16" ry="6" fill="#A3B18A" opacity="0.55" transform="rotate(30 100 210)"/>
+          <ellipse cx="62" cy="230" rx="14" ry="5" fill="#A3B18A" opacity="0.5" transform="rotate(-30 62 230)"/>
+        </svg>
+
+        {/* Wildflower cluster — middle left (desktop only) */}
+        <svg className="absolute top-1/2 -translate-y-1/2 -left-6 w-44 opacity-25 -rotate-12 hidden lg:block" viewBox="0 0 120 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M60 200 Q62 140 58 80 Q55 50 60 20" stroke="#A3B18A" strokeWidth="1.2" strokeLinecap="round"/>
+          <path d="M60 120 Q40 90 30 60" stroke="#A3B18A" strokeWidth="1.2" strokeLinecap="round"/>
+          <path d="M60 140 Q80 110 90 80" stroke="#A3B18A" strokeWidth="1.2" strokeLinecap="round"/>
+          {[
+            { cx: 60, cy: 20 },
+            { cx: 30, cy: 60 },
+            { cx: 90, cy: 80 },
+          ].map((p, i) => (
+            <g key={i}>
+              {[0, 72, 144, 216, 288].map((deg) => (
+                <ellipse key={deg} cx={p.cx} cy={p.cy - 7} rx="4" ry="6" fill="#D4A373" opacity="0.7" transform={`rotate(${deg} ${p.cx} ${p.cy})`}/>
+              ))}
+              <circle cx={p.cx} cy={p.cy} r="2.5" fill="#5E503F" opacity="0.6"/>
+            </g>
+          ))}
+        </svg>
+
+        {/* Small leaves — top left accent */}
+        <svg className="absolute top-40 left-12 w-32 opacity-25 rotate-45 hidden md:block" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M50 10 Q50 55 50 90" stroke="#A3B18A" strokeWidth="1.2" strokeLinecap="round"/>
+          <ellipse cx="38" cy="35" rx="12" ry="6" fill="#A3B18A" opacity="0.7" transform="rotate(-35 38 35)"/>
+          <ellipse cx="62" cy="50" rx="12" ry="6" fill="#A3B18A" opacity="0.7" transform="rotate(35 62 50)"/>
+          <ellipse cx="38" cy="65" rx="11" ry="5" fill="#A3B18A" opacity="0.65" transform="rotate(-35 38 65)"/>
+        </svg>
+
+        {/* Single flower — bottom right */}
+        <svg className="absolute bottom-40 right-16 w-28 opacity-30 rotate-12 hidden md:block" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          {[0, 60, 120, 180, 240, 300].map((deg) => (
+            <ellipse key={deg} cx="50" cy="35" rx="6" ry="14" fill="#D4A373" opacity="0.7" transform={`rotate(${deg} 50 50)`}/>
+          ))}
+          <circle cx="50" cy="50" r="6" fill="#5E503F" opacity="0.6"/>
+          <path d="M50 56 Q50 80 50 95" stroke="#A3B18A" strokeWidth="1.5" strokeLinecap="round"/>
+          <ellipse cx="42" cy="75" rx="9" ry="4" fill="#A3B18A" opacity="0.7" transform="rotate(-30 42 75)"/>
+        </svg>
       </div>
 
       {/* Navbar - Fixed (z-40) */}
