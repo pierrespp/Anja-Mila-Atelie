@@ -511,7 +511,7 @@ export default function App() {
             <img
               src={logo}
               alt="Anja Mila Ateliê"
-              className="h-12 md:h-14 w-auto object-contain transition-transform duration-500 group-hover:scale-105"
+              className="h-14 md:h-16 w-auto object-contain transition-transform duration-500 group-hover:scale-105"
             />
             <span className="sr-only">Anja Mila Ateliê</span>
           </a>
