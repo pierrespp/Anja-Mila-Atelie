@@ -532,19 +532,19 @@ export default function App() {
           </a>
 
           {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-10">
+          <div className="hidden md:flex items-center gap-12">
             {['Coleções', 'A Artesã', 'Processo', 'Contato'].map((item) => (
               <a 
                 key={item} 
                 href={`#${item.toLowerCase().replace(' ', '-')}`}
-                className="text-[10px] uppercase tracking-[0.2em] font-semibold text-cottage-wood opacity-70 hover:opacity-100 hover:text-cottage-rose transition-all duration-300"
+                className="text-[13px] uppercase tracking-[0.2em] font-semibold text-cottage-wood opacity-70 hover:opacity-100 hover:text-cottage-rose transition-all duration-300"
               >
                 {item}
               </a>
             ))}
           </div>
 
-          <div className="hidden lg:flex items-center gap-3 border border-wood-soft rounded-full px-4 py-2 opacity-60 text-xs italic">
+          <div className="hidden lg:flex items-center gap-3 border border-wood-soft rounded-full px-5 py-2.5 opacity-60 text-sm italic">
             <span>Procurar um presente especial...</span>
           </div>
 
